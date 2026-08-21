@@ -40,3 +40,26 @@ jobs:
                 load: ${{ github.event_name != 'push' }}
                 tags: |
                     ifeoluwashola/frontend-v1:${{ steps.tag.outputs.sha_tag }}
+    deploy:
+        needs: build
+        if: github.event_name == 'push'
+        runs-on: ubuntu-latest
+        steps:
+        -   name: Checkout code
+            uses: actions/checkout@v6
+    
+        -   name: SSH and Update
+            uses: appleboy/ssh-action@v1.0.3
+            with:
+                host: ${{ secrets.EC2_HOST }}
+                username: ubuntu
+                key: ${{ secrets.SSH_PRIVATE_KEY }}
+                script: |
+                    # Authenticate with DockerHub
+                    echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+                    
+                    # Pull latest image
+                    docker pull ifeoluwashola/frontend-v1:${{ needs.build.outputs.sha_tag }}
+                    export IMAGE=ifeoluwashola/frontend-v1:${{ needs.build.outputs.sha_tag }}
+
+                    docker run -d -p 3000:3000 --name frontend $IMAGE
